@@ -573,31 +573,51 @@ class ScoringEngine:
         return round(competitive * 0.5 + health * 0.5, 1)
     
     @staticmethod
-    def generate_insight(company: str, competitive: float, health: float, dev: Optional[float], funding: dict) -> str:
-        """Generate contextual AI insight"""
+    def generate_insight(company: str, competitive: float, health: float, dev: Optional[float], funding: dict, pricing: dict = None) -> str:
+        """Generate contextual AI insight with 5 key metrics"""
         parts = []
         
         stage = funding.get("stage", "Unknown")
         raised = funding.get("total_raised", "")
+        has_free = pricing.get("has_free_tier", False) if pricing else False
         
+        # 1. Competitive Landscape
         if competitive >= 8:
-            parts.append(f"{company} demonstrates strong competitive positioning with aggressive pricing strategy.")
+            parts.append(f"COMPETITIVE LANDSCAPE: {company} shows strong market positioning with aggressive pricing.")
         elif competitive >= 6:
-            parts.append(f"{company} maintains solid market positioning with clear tier differentiation.")
+            parts.append(f"COMPETITIVE LANDSCAPE: {company} holds solid positioning with clear differentiation.")
         else:
-            parts.append(f"{company} faces pricing pressure; may need to revisit go-to-market strategy.")
+            parts.append(f"COMPETITIVE LANDSCAPE: {company} faces pressure; GTM adjustment may be needed.")
         
+        # 2. Product Market Fit
         if health >= 9:
-            parts.append(f"At {stage} with {raised} raised, strong investor confidence and growth trajectory.")
+            parts.append(f"PRODUCT MARKET FIT: Strong — {stage} at {raised} signals validated demand.")
         elif health >= 7:
-            parts.append(f"{stage} funding of {raised} indicates healthy runway and market validation.")
+            parts.append(f"PRODUCT MARKET FIT: Good — {stage} funding indicates market validation.")
         else:
-            parts.append("Early-stage with room for growth; monitor for next funding round.")
+            parts.append("PRODUCT MARKET FIT: Early signals — monitor traction metrics.")
         
+        # 3. Product Scalability
+        if health >= 8 and competitive >= 7:
+            parts.append("PRODUCT SCALABILITY: High — infrastructure and pricing support rapid growth.")
+        elif health >= 6:
+            parts.append("PRODUCT SCALABILITY: Moderate — runway supports expansion.")
+        else:
+            parts.append("PRODUCT SCALABILITY: Limited — needs funding for scale.")
+        
+        # 4. Product IP
         if dev and dev >= 8:
-            parts.append("Technical founder with significant open-source credibility adds execution confidence.")
+            parts.append("PRODUCT IP: Strong technical founder adds defensibility and execution edge.")
         elif dev and dev >= 6:
-            parts.append("Founder shows solid technical background.")
+            parts.append("PRODUCT IP: Solid technical foundation in place.")
+        else:
+            parts.append("PRODUCT IP: Technical depth unclear — assess team capabilities.")
+        
+        # 5. Customer Acquisition Cost
+        if has_free or competitive >= 8:
+            parts.append("CUSTOMER ACQUISITION: PLG motion suggests efficient CAC.")
+        else:
+            parts.append("CUSTOMER ACQUISITION: Sales-led model — monitor CAC payback period.")
         
         return " ".join(parts)
 
@@ -652,7 +672,7 @@ class VCScoutAgent:
         overall_score = self.scorer.overall_score(competitive_score, health_score, dev_score)
         
         # Generate insight
-        insight = self.scorer.generate_insight(company, competitive_score, health_score, dev_score, funding)
+        insight = self.scorer.generate_insight(company, competitive_score, health_score, dev_score, funding, pricing)
         
         return CompanyResult(
             company=company,
@@ -690,24 +710,16 @@ class VCScoutAgent:
     
     def _generate_funding(self) -> dict:
         """Generate plausible funding for unknown company"""
-        stages = ["Seed", "Series A", "Series A", "Series B", "Series B", "Series C"]
-        stage = random.choice(stages)
+        # Mix of funded and pre-funding startups
+        stage_options = [
+            {"stage": "Pre-Seed", "total_raised": "Seeking", "last_round": "—", "investors": ["Bootstrapped"]},
+            {"stage": "Pre-Seed", "total_raised": "Seeking Seed", "last_round": "—", "investors": ["Not yet raised"]},
+            {"stage": "Seed", "total_raised": f"${random.randint(2, 8)}M", "last_round": "2024", "investors": random.sample(["Y Combinator", "Techstars", "500 Global", "Angel investors"], 2)},
+            # {"stage": "Series A", "total_raised": f"${random.randint(10, 30)}M", "last_round": "2024", "investors": random.sample(["Sequoia", "a16z", "Accel", "Index Ventures"], 2)},
+            # {"stage": "Series B", "total_raised": f"${random.randint(30, 80)}M", "last_round": "2024", "investors": random.sample(["Bessemer", "Greylock", "GV", "Lightspeed"], 2)},
+        ]
         
-        amounts = {
-            "Seed": random.randint(2, 8),
-            "Series A": random.randint(10, 30),
-            "Series B": random.randint(30, 80),
-            "Series C": random.randint(80, 200)
-        }
-        
-        investors_pool = ["Sequoia", "a16z", "Accel", "Y Combinator", "Index Ventures", "Greylock", "GV", "Bessemer", "Founders Fund", "Lightspeed"]
-        
-        return {
-            "stage": stage,
-            "total_raised": f"${amounts.get(stage, 20)}M",
-            "last_round": str(random.choice([2023, 2024, 2024, 2025])),
-            "investors": random.sample(investors_pool, 3)
-        }
+        return random.choice(stage_options)
     
     def _generate_github(self, founder: str) -> dict:
         """Generate plausible GitHub for unknown founder"""

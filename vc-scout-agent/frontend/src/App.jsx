@@ -413,7 +413,11 @@ function App() {
                           </svg>
                           <span>AI Investment Insight</span>
                         </div>
-                        <p className="insight-text">{r.insight}</p>
+                        <ul className="insight-list">
+  {r.insight.split(/(?=COMPETITIVE|PRODUCT|CUSTOMER)/).filter(Boolean).map((item, idx) => (
+    <li key={idx}>{item.trim()}</li>
+  ))}
+</ul>
                       </div>
                     </div>
                   )
